@@ -1,6 +1,5 @@
 library(tidyverse)
 
-
 ####### Insheet
 
 ufc.raw <- read.csv("archive/data.csv")
@@ -18,12 +17,13 @@ fight.raw$R.B.dif <- fight.raw$R_Weight_lbs - fight.raw$B_Weight_lbs
 fight.raw$R.B.reach.dif <- fight.raw$R_Reach_cms - fight.raw$B_Reach_cms
 fight.raw$R.B.height.dif <- fight.raw$R_Height_cms - fight.raw$B_Height_cms
 fight.raw$R.won <- as.numeric(fight.raw$Winner == "Red")
+fight.raw$heavier.won <- as.numeric(as.numeric(fight.raw$R.B.dif <= 0) != fight.raw$R.won)
 
 ####### Pare
 
 # Note that favored fighters sit in the red corner!!!
 
-paring <- c("R_fighter", 'B_fighter', "R_Weight_lbs", "B_Weight_lbs", "R.B.dif", "R.B.reach.dif", "R.B.height.dif", "R_Reach_cms", "B_Reach_cms", "R_Height_cms", "B_Height_cms", "R.won")
+paring <- c("R_fighter", 'B_fighter', "R_Weight_lbs", "B_Weight_lbs", "R.B.dif", "R.B.reach.dif", "R.B.height.dif", "R_Reach_cms", "B_Reach_cms", "R_Height_cms", "B_Height_cms", "R.won", "weight_class", "heavier.won")
 
 # only tkos or submissions
 real.finish.only <- fight.raw %>% subset(win_by == "Submission" | win_by == "KO/TKO")
@@ -55,7 +55,6 @@ summary(m.heavy)
 
 ####### Analyze big weight differences
 heaviest <- heavy %>% subset(abs(R.B.dif) >= 50)
-heaviest$heavier.won <- as.numeric(as.numeric(heaviest$R.B.dif <= 0) != heaviest$R.won)
 mean(heaviest$heavier.won)
 
 ####### Predictions
@@ -71,16 +70,10 @@ ggplot(predict.frame) +
   geom_point(aes(x = R.B.height.dif, y = fit - 0.82))
   #geom_errorbar(aes(x = R.B.height.dif, ymin = lwr - 0.82, ymax = upr - 0.82))
 
-
 # notes
 
 # simpson vs herman - bigger guy got hurt
 # https://mmabouts.fandom.com/wiki/Aaron_Simpson_vs._Ed_Herman
-
-
-
-
-
 
 
 ####### Analyze weight (models)
@@ -116,4 +109,33 @@ hist(bigdif$R.B.dif)
 
 # subset height dif
 hist(bigdif$R.B.height.dif)
+
+####### Punches
+
+####### ####### ####### Viz ####### ####### ####### 
+
+# overall win rate
+win.rate.weight.class <- real.finish.only %>% group_by(weight_class) %>% summarise(heavier.won = round(100*mean(heavier.won, na.rm=T)))
+ggplot(win.rate.weight.class) +
+  geom_bar(aes(x = weight_class, y = heavier.won), stat="identity") +
+  theme_omni() +
+  xlab("Weight class (both sexes)") +
+  ylab("Percentage of fights in which heavier fighter won") +
+  ggtitle("Heavier fighters have no clear advantage") +
+  geom_hline(yintercept=50, linetype="dashed") +
+  labs(subtitle ="Dashed line denotes 50% win rate\n") +
+  coord_flip()
+
+# bigdif win rate
+win.rate.weight.class.bigdif <- bigdif %>% group_by(weight_class) %>% summarise(heavier.won = round(100*mean(heavier.won, na.rm=T)), n = n()) %>% subset(n >= 30)
+ggplot(win.rate.weight.class.bigdif) +
+  geom_bar(aes(x = weight_class, y = heavier.won), stat="identity") +
+  geom_hline(yintercept=50, linetype="dashed") +
+  theme_omni() +
+  xlab("Weight class (both sexes)") +
+  ylab("Percentage of fights in which heavier fighter won") +
+  ggtitle("Fighters outweighing opponents\nby >15lbs have no major advantage") +
+  labs(subtitle ="Only weight classes with more than 30 fights are shown\n") +
+  coord_flip()
+
 
